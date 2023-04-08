@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NLP Sentiment</title>
+  <style>
+    [v-cloak] {
+      display: none;
+    }
+    .wdt5 {
+      width: 5rem;
+    }
+    .wdt12 {
+      width: 12rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app" v-cloak>
+    <v-app>
+      <v-app-bar app>
+
+        <v-app-bar-title>NLP Sentiment</v-app-bar-title>
+        <v-spacer></v-spacer>
+        <v-switch
+          v-model="local_mode"
+          :label="`LocalMode`"
+          hide-details
+          class="ma-2"
+        ></v-switch>
+
+      </v-app-bar>
+
+      <!-- Toast Component -->
+      <v-snackbar
+        v-model="toast.show"
+        bottom
+        multi-line
+        :timeout="toast.timeout"
+        :color="toast.type"
+        @click="toast.show = false">
+        <div class="rw">{{ toast.text }}</div>
+      </v-snackbar>
+
+      <v-main>
+        <v-container>
+          <!-- <v-divider></v-divider>
+          <div class="text-h5 primary--text">Query Parameters:</div>
+          <div class="ma-2">
+            <v-row class="ma-2">
+              <v-col class="col">
+                <v-row>
+                  <v-switch
+                    v-model="is_show_neutral_scores"
+                    :label="`Show Neutral Scores`"
+                    hide-details
+                    class="ma-2"
+                  ></v-switch>
+                </v-row>
+              </v-col>
+            </v-row>
+          </div> -->
+
+          <v-divider></v-divider>
+          <div class="text-h5 primary--text">Send Text Data:</div>
+          <div class="ma-2">
+            <v-textarea
+              name=""
+              filled
+              label="Text Data"
+              auto-grow
+              v-model="send_text"
+              clearable
+              counter
+            ></v-textarea>
+
+            <v-row class="justify-center align-center ma-3">
+              <v-btn 
+                tile color="primary"
+                elevation="1"
+                rounded
+                @click="sendRequest()">
+                <v-icon left>mdi-send</v-icon>
+                <span>Send Text</span>
+              </v-btn>
+            </v-row>
+          </div>
+
+          <v-divider></v-divider>
+          <div class="text-h5 primary--text">Result:</div>
+          <div class="ma-2">
+            <v-row class="justify-center">
+              <div v-if="isLoading">
+                <v-progress-circular
+                  v-show="isLoading"
+                  :size="50"
+                  color="primary"
+                  indeterminate
+                ></v-progress-circular>
+              </div>
+              <div v-else class="flex-grow-1">
+                <div class="ma-5">
+                  <div class="accent text-h5">score</div>
+                  <div>{{ ret_score }}</div>
+                </div>
+
+                <div class="ma-5">
+                  <div class="accent text-h5">sentimentMentions</div>
+                  <div class="ma-3 elevation-3" v-for="item in ret_sentimentMentions">
+                    <div>{{ item.span.text }}</div>
+                    <div class="d-flex">
+                      <v-progress-linear :value="calculatedValue(item.sentimentprob.positive)" color="blue" height="20" :max="1.0" class="">
+                        positive: {{ item.sentimentprob.positive.toFixed(3) }}
+                      </v-progress-linear>
+                      <v-progress-linear :value="calculatedValue(item.sentimentprob.neutral)" color="green" height="20" :max="1.0" class="">
+                        neutral: {{ item.sentimentprob.neutral.toFixed(3) }}
+                      </v-progress-linear>
+                      <v-progress-linear :value="calculatedValue(item.sentimentprob.negative)" color="red" height="20" :max="1.0" class="">
+                        negative: {{ item.sentimentprob.negative.toFixed(3) }}
+                      </v-progress-linear>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </v-row>
+          </div>
+
+        </v-container>
+      </v-main>
+    </v-app>
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+  <script>
+    const LOCAL_URL = "http://localhost:8080/v1/watson.runtime.nlp.v1/NlpService/";
+    // const BRIDGE_URL = "https://watson-nlp-runtime.10xsz3m0vfdh.jp-tok.codeengine.appdomain.cloud/v1/watson.runtime.nlp.v1/NlpService/";
+
+    const BRIDGE_URL = "http://localhost:3000/";
+    // const BRIDGE_URL = "https://stt-api.oq8jb4qw7gl.us-east.codeengine.appdomain.cloud/";
+
+    new Vue({
+      el: '#app',
+      vuetify: new Vuetify(),
+
+      data:() => ({
+        local_mode: true,
+        
+        // components
+        toast:{
+          show: false,
+          timeout: 5000,
+          type: "primary",
+          text:""
+        },
+
+        // query settings
+        isLoading: false,
+        is_show_neutral_scores: true,
+        is_document_sentiment: true,
+
+        // body
+        send_text:"クレンジングバームが好きで色んなメーカーのものを使ってきましたが、これはかなり気に入ってもう何度もリピートしています！毛穴汚れがしっかり落ちてる感じもあるし、洗った後もさっぱりしてるけどつっぱらない使用感が気に入っています！少し固めのテクスチャに見えるけど手の温度で溶けてちょうどよくなります。ヒアルロンやコラーゲンなど保湿力がすごく高めの成分が配合されているけれどサッパリとした感じのパックでした。デイリー使いとして使うならいいかもだけど保湿力が物足りず結局スキンケアの時短にはならなかった(TT)",
+
+        // result
+        ret_score: 0,
+        ret_sentimentMentions: [],
+      }),
+
+      methods: {
+        calculatedValue(val) {
+          return val * 100;
+        },
+
+        // components
+        showToast(msg) {
+          this.toast.text = msg;
+          this.toast.show = true;
+        },
+
+        // Send Data
+        sendRequest(){
+          // let sendurl = `${(this.local_mode) ? LOCAL_URL : BRIDGE_URL}SentimentPredict`;
+          let sendurl = `${(this.local_mode) ? LOCAL_URL : BRIDGE_URL}analyze`;
+
+          this.isLoading = true;
+
+          let options = {
+            method: "POST",
+            // mode: 'no-cors',
+            headers: {
+              "Content-Type": "application/json",
+              "Grpc-Metadata-mm-model-id":"sentiment_aggregated-cnn-workflow_lang_ja_stock"
+            },
+            body: JSON.stringify({
+              "raw_document":{
+                "text": this.send_text
+              },
+              "language_code": "ja",
+              "show_neutral_scores": this.is_show_neutral_scores,
+              "document_sentiment": this.is_document_sentiment,
+            })
+          };
+
+          fetch(
+              `${sendurl}`,
+              options
+            )
+            .then(res => res.json())
+            .then(json => {
+              console.log(json);
+              this.isLoading = false;
+              this.setResult(json);
+            })
+        },
+
+        // Result
+        setResult(json){
+          if (json) {
+            let ret = json.documentSentiment;
+            if (ret) {
+              this.ret_score = ret.score;
+              this.ret_sentimentMentions = ret.sentimentMentions;
+            }
+          }
+        },
+      },
+      mounted() {
+        console.log("vue mounted.");
+
+        //test
+        // this.setResult(DUMMY_JSON);
+      }
+    })
+
+  </script>
+</body>
+
+</html>
