@@ -18,7 +18,7 @@ const axios = require('axios');
 
 // require('dotenv').config({ debug:true });
 
-const LOCAL_URL = "http://localhost:8080/v1/watson.runtime.nlp.v1/NlpService/";
+// const LOCAL_URL = "http://localhost:8080/v1/watson.runtime.nlp.v1/NlpService/";
 const BRIDGE_URL = "https://watson-nlp-runtime.10xsz3m0vfdh.jp-tok.codeengine.appdomain.cloud/v1/watson.runtime.nlp.v1/NlpService/";
 
 var server = express();
@@ -47,7 +47,7 @@ server
          return;
       }
       
-      let sendurl = `${LOCAL_URL}SentimentPredict`;
+      let sendurl = `${BRIDGE_URL}SentimentPredict`;
 
       let options = {
          headers: {
