@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NLP Sentiment</title>
+  <style>
+    [v-cloak] {
+      display: none;
+    }
+    .wdt5 {
+      width: 5rem;
+    }
+    .wdt12 {
+      width: 12rem;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app" v-cloak>
+    <v-app>
+      <v-app-bar app>
+
+        <v-app-bar-title>NLP Emotion</v-app-bar-title>
+        <v-spacer></v-spacer>
+        <!-- <v-switch
+          v-model="local_mode"
+          :label="`LocalMode`"
+          hide-details
+          class="ma-2"
+        ></v-switch> -->
+
+      </v-app-bar>
+
+      <!-- Toast Component -->
+      <v-snackbar
+        v-model="toast.show"
+        bottom
+        multi-line
+        :timeout="toast.timeout"
+        :color="toast.type"
+        @click="toast.show = false">
+        <div class="rw">{{ toast.text }}</div>
+      </v-snackbar>
+
+      <v-main>
+        <v-container>
+          <!-- <v-divider></v-divider>
+          <div class="text-h5 primary--text">Query Parameters:</div>
+          <div class="ma-2">
+            <v-row class="ma-2">
+              <v-col class="col">
+                <v-row>
+                  <v-switch
+                    v-model="is_show_neutral_scores"
+                    :label="`Show Neutral Scores`"
+                    hide-details
+                    class="ma-2"
+                  ></v-switch>
+                </v-row>
+              </v-col>
+            </v-row>
+          </div> -->
+
+          <v-divider></v-divider>
+          <div class="text-h5 primary--text">Send Text Data:</div>
+          <div class="ma-2">
+            <v-textarea
+              name=""
+              filled
+              label="Text Data"
+              auto-grow
+              v-model="send_text"
+              clearable
+              counter
+            ></v-textarea>
+
+            <v-row class="justify-center align-center ma-3">
+              <v-btn 
+                tile color="primary"
+                elevation="1"
+                rounded
+                @click="sendRequest()">
+                <v-icon left>mdi-send</v-icon>
+                <span>Send Text</span>
+              </v-btn>
+            </v-row>
+          </div>
+
+          <v-divider></v-divider>
+          <div class="text-h5 primary--text">Result:</div>
+          <div class="ma-2">
+            <v-row class="justify-center">
+              <div v-if="isLoading">
+                <v-progress-circular
+                  v-show="isLoading"
+                  :size="50"
+                  color="primary"
+                  indeterminate
+                ></v-progress-circular>
+              </div>
+              <div v-else class="flex-grow-1">
+                <div class="ma-5">
+                  <div class="accent text-h5">emotionPredictions</div>
+
+                  <div class="ma-1 elevation-3">
+                    <div>emotion</div>
+                    <div class="d-flex" v-if="ret_emotionPrediction">
+                      <v-progress-linear :value="calculatedValue(ret_emotionPrediction.emotion.anger)" color="blue" height="20" :max="1.0" class="">
+                        anger: {{ ret_emotionPrediction.emotion.anger.toFixed(3) }}
+                      </v-progress-linear>
+                      <v-progress-linear :value="calculatedValue(ret_emotionPrediction.emotion.disgust)" color="blue" height="20" :max="1.0" class="">
+                        disgust: {{ ret_emotionPrediction.emotion.disgust.toFixed(3) }}
+                      </v-progress-linear>
+                      <v-progress-linear :value="calculatedValue(ret_emotionPrediction.emotion.fear)" color="blue" height="20" :max="1.0" class="">
+                        fear: {{ ret_emotionPrediction.emotion.fear.toFixed(3) }}
+                      </v-progress-linear>
+                      <v-progress-linear :value="calculatedValue(ret_emotionPrediction.emotion.joy)" color="blue" height="20" :max="1.0" class="">
+                        joy: {{ ret_emotionPrediction.emotion.joy.toFixed(3) }}
+                      </v-progress-linear>
+                      <v-progress-linear :value="calculatedValue(ret_emotionPrediction.emotion.sadness)" color="blue" height="20" :max="1.0" class="">
+                        sadness: {{ ret_emotionPrediction.emotion.sadness.toFixed(3) }}
+                      </v-progress-linear>
+                    </div>
+                  </div>
+
+                  <div class="ma-3 elevation-3" v-if="ret_emotionPrediction" >
+                    <div v-for="item in ret_emotionPrediction.emotionMentions">
+                      <div>{{ item.span.text }}</div>
+                      <div class="d-flex">
+                        <v-progress-linear :value="calculatedValue(item.emotion.anger)" color="blue" height="20" :max="1.0" class="">
+                          anger: {{ item.emotion.anger.toFixed(3) }}
+                        </v-progress-linear>
+                        <v-progress-linear :value="calculatedValue(item.emotion.disgust)" color="blue" height="20" :max="1.0" class="">
+                          disgust: {{ item.emotion.disgust.toFixed(3) }}
+                        </v-progress-linear>
+                        <v-progress-linear :value="calculatedValue(item.emotion.fear)" color="blue" height="20" :max="1.0" class="">
+                          fear: {{ item.emotion.fear.toFixed(3) }}
+                        </v-progress-linear>
+                        <v-progress-linear :value="calculatedValue(item.emotion.joy)" color="blue" height="20" :max="1.0" class="">
+                          joy: {{ item.emotion.joy.toFixed(3) }}
+                        </v-progress-linear>
+                        <v-progress-linear :value="calculatedValue(item.emotion.sadness)" color="blue" height="20" :max="1.0" class="">
+                          sadness: {{ item.emotion.sadness.toFixed(3) }}
+                        </v-progress-linear>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </v-row>
+          </div>
+
+        </v-container>
+      </v-main>
+    </v-app>
+  </div>
+
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+  <script>
+    // const BRIDGE_URL = "https://watson-nlp-runtime.10xsz3m0vfdh.jp-tok.codeengine.appdomain.cloud/v1/watson.runtime.nlp.v1/NlpService/";
+    // const LOCAL_URL = "http://localhost:3000/";
+    const LOCAL_URL = "./";
+
+    new Vue({
+      el: '#app',
+      vuetify: new Vuetify(),
+
+      data:() => ({
+        local_mode: true,
+        
+        // components
+        toast:{
+          show: false,
+          timeout: 5000,
+          type: "primary",
+          text:""
+        },
+
+        // query settings
+        isLoading: false,
+        is_show_neutral_scores: true,
+        is_document_sentiment: true,
+
+        // body
+        send_text:"I hate school. School is bad. I don't like study.",
+        // send_text:"「お電話ありがとうございます、株式会社ぽちっとの唐沢でございま す」「もしもし」「ハイ、あの、お掃除をお願いしたいのですが、はい、どうしたらいい ですか」「はい、お問い合わせありがとうございます。まずはお客様のご都合 のよい日でお見積りをご予約くださいませ」「はい」 「正確な金額を出すために2つがお掃除場所にお伺いいたします。 お見積り内容にご納得いただけましたら、お掃除の日にちをご相談 させていただきます」「わかりました」 「お客様、今回はどちらの掃除方法を考えていらっしゃいますか」 「のリビングのフローリングなんですが、汚れが気になっています」 「はい、リビングのフローリングですね。はい、私どもでは専用の洗剤で汚れをしっかり落とした後に仕上げにワックスでポーティングします。 半額をかけることで艶が出て、お掃除後はさっと拭き取るだけで汚 れが落ちるようになります」「そうなんですね」「はい、リビングのほかにもフローリングの部屋がございましたら、小さ い方のお部屋が半額になるセットメニューもございます。ぜひ、合わ せてご検討くださいませ」",
+
+        // result
+        ret_score: 0,
+        ret_emotionPrediction: null,
+      }),
+
+      methods: {
+        calculatedValue(val) {
+          return val * 100;
+        },
+
+        // components
+        showToast(msg) {
+          this.toast.text = msg;
+          this.toast.show = true;
+        },
+
+        // Send Data
+        sendRequest(){
+          let sendurl = `${(this.local_mode) ? LOCAL_URL : BRIDGE_URL}EmotionPredict`;
+
+          this.isLoading = true;
+
+          let options = {
+            method: "POST",
+            // mode: 'no-cors',
+            headers: {
+              "Content-Type": "application/json",
+              "accept": 'application/json',
+            },
+            body: JSON.stringify({
+              "raw_document":{
+                "text": this.send_text
+              },
+              "language_code": "ja",
+              "target_phrases":[""]
+            })
+          };
+
+          fetch(
+              `${sendurl}`,
+              options
+            )
+            .then(res => res.json())
+            .then(json => {
+              console.log(json);
+              this.isLoading = false;
+              this.setResult(json);
+            })
+        },
+
+        // Result
+        setResult(json){
+          if (json) {
+            let ret = json.emotionPredictions;
+            if (ret) {
+              this.ret_emotionPrediction = ret.slice(-1)[0];
+            }
+          }
+        },
+      },
+      mounted() {
+        console.log("vue mounted.");
+      }
+    })
+
+  </script>
+</body>
+
+</html>
